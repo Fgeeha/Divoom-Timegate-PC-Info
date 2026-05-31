@@ -10,6 +10,12 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Default search order when no explicit path is given.
+_CONFIG_SEARCH = [
+    Path.home() / ".divoom-pc-monitor" / "config.toml",
+    Path("config.toml"),
+]
+
 
 @dataclass
 class DeviceConfig:
@@ -60,11 +66,21 @@ def load_config(config_path: Optional[Path] = None) -> AppConfig:
     """Load config from TOML file then apply env var overrides."""
     cfg = AppConfig()
 
-    if config_path is not None and config_path.exists():
-        with open(config_path, "rb") as fh:
+    resolved: Optional[Path] = None
+    if config_path is not None:
+        if config_path.exists():
+            resolved = config_path
+    else:
+        for candidate in _CONFIG_SEARCH:
+            if candidate.exists():
+                resolved = candidate
+                break
+
+    if resolved is not None:
+        with open(resolved, "rb") as fh:
             raw = tomllib.load(fh)
         _apply_toml(cfg, raw)
-        logger.debug("Loaded config from %s", config_path)
+        logger.debug("Loaded config from %s", resolved)
 
     _apply_env(cfg)
 

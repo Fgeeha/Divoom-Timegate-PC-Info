@@ -61,6 +61,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
         with:
@@ -78,10 +80,27 @@ jobs:
           mv artifacts/linux/divoom-pc-monitor artifacts/divoom-pc-monitor-linux
           mv artifacts/windows/divoom-pc-monitor.exe artifacts/divoom-pc-monitor-windows.exe
 
+      - name: Build deb package
+        run: |
+          sudo gem install fpm --no-document -q
+          VERSION="${GITHUB_REF_NAME#v}"
+          chmod +x artifacts/divoom-pc-monitor-linux
+          fpm -s dir -t deb \
+            -n divoom-pc-monitor \
+            -v "$VERSION" \
+            --architecture amd64 \
+            --description "Cross-platform PC monitor for Divoom Times Gate pixel clock" \
+            --url "https://github.com/Fgeeha/Divoom-Timegate-PC-Info" \
+            --maintainer "anon <anon@localhost>" \
+            "artifacts/divoom-pc-monitor-linux=/usr/bin/divoom-pc-monitor" \
+            "config.example.toml=/usr/share/divoom-pc-monitor/config.example.toml"
+          mv divoom-pc-monitor_*.deb artifacts/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/divoom-pc-monitor-linux
             artifacts/divoom-pc-monitor-windows.exe
+            artifacts/*.deb
           generate_release_notes: true

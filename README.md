@@ -44,21 +44,44 @@ sudo sensors-detect --auto
 
 ### Готовые сборки
 
-Автономные бинарники публикуются в [**GitHub Releases**](../../releases) при создании тега `v*`:
+При создании тега `v*` в [**GitHub Releases**](../../releases) появляются три файла:
 
-- `divoom-pc-monitor-linux` — для Ubuntu/Linux;
-- `divoom-pc-monitor-windows.exe` — для Windows 11.
+- `divoom-pc-monitor-linux` — автономный бинарь для Ubuntu/Linux;
+- `divoom-pc-monitor-windows.exe` — автономный бинарь для Windows 11;
+- `divoom-pc-monitor_X.Y.Z_amd64.deb` — deb-пакет для Ubuntu/Debian.
 
 Запуск не требует установленного Python.
+
+#### Установка через deb (Ubuntu/Debian)
+
+```bash
+sudo dpkg -i divoom-pc-monitor_X.Y.Z_amd64.deb
+# пример конфига ставится в /usr/share/divoom-pc-monitor/config.example.toml
+mkdir -p ~/.divoom-pc-monitor
+cp /usr/share/divoom-pc-monitor/config.example.toml ~/.divoom-pc-monitor/config.toml
+```
+
+После этого отредактируйте `~/.divoom-pc-monitor/config.toml` и запускайте:
+
+```bash
+divoom-pc-monitor --device-ip 192.168.1.182
+```
 
 ---
 
 ## Настройка
 
-Скопируйте пример конфига и отредактируйте под себя:
+Приложение ищет конфиг в следующем порядке:
+
+1. `--config FILE` (явный путь)
+2. `~/.divoom-pc-monitor/config.toml` (пользовательский конфиг, **рекомендуется**)
+3. `./config.toml` (текущая директория, удобно при разработке)
+
+Создайте конфиг в домашней директории:
 
 ```bash
-cp config.example.toml config.toml
+mkdir -p ~/.divoom-pc-monitor
+cp config.example.toml ~/.divoom-pc-monitor/config.toml
 ```
 
 ```toml
@@ -153,7 +176,8 @@ GitHub Actions (`.github/workflows/build.yml`) на каждый push и pull re
 При создании тега `v*` (например `git tag v1.0.0 && git push origin v1.0.0`) дополнительно запускается job `release`:
 
 5. Скачивает оба бинарника из артефактов.
-6. Создаёт GitHub Release с автосгенерированными release notes.
+6. Собирает `.deb`-пакет через `fpm` (бинарь → `/usr/bin/`, пример конфига → `/usr/share/divoom-pc-monitor/`).
+7. Создаёт GitHub Release с автосгенерированными release notes и тремя файлами: Linux-бинарь, Windows-бинарь, `.deb`.
 
 Для публикации релиза никаких дополнительных секретов не нужно — используется встроенный `GITHUB_TOKEN`.
 

@@ -71,9 +71,9 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--config",
         type=Path,
-        default=Path("config.toml"),
+        default=None,
         metavar="FILE",
-        help="Path to config.toml (default: ./config.toml)",
+        help="Path to config.toml (default: ~/.divoom-pc-monitor/config.toml, then ./config.toml)",
     )
     p.add_argument("--device-ip", metavar="IP", help="Device IP (overrides config/env)")
     p.add_argument("--server-host", metavar="HOST", help="Listen host (overrides config)")
