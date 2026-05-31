@@ -86,22 +86,28 @@ cp config.example.toml ~/.divoom-pc-monitor/config.toml
 
 ```toml
 [device]
-# IP часов в локальной сети. Оставьте пустым, чтобы включить авто-обнаружение.
-ip = ""
+ip = ""          # IP часов; пусто = авто-обнаружение
 autodiscover = true
+# token = ""     # DeviceToken — если в логах "DeviceToken is err" (см. ниже)
 
 [server]
-# Адрес, на котором слушает наш сервер. Часы должны достучаться сюда по сети,
-# поэтому 127.0.0.1 НЕ подойдёт — нужен LAN-адрес этой машины.
-# Оставьте пустым для авто-определения LAN-IP.
-listen_host = ""
+listen_host = "" # пусто = авто-определить LAN-IP
 listen_port = 3380
 
 [monitor]
-update_interval = 1   # период обновления метрик, секунды
+update_interval = 1
+
+[weather]
+city = "Moscow"
+api_key = ""     # ключ OpenWeatherMap (бесплатно на openweathermap.org)
+units = "metric" # metric (°C) или imperial (°F)
+update_interval = 600
+
+[display]
+timezone = "Europe/Moscow"  # IANA-имя; пусто = системное время
 ```
 
-`config.toml` и `.env` игнорируются git'ом — реальные адреса в репозиторий не попадают.
+`config.toml` игнорируется git'ом — реальные IP и ключи в репозиторий не попадают.
 
 ### Где взять IP часов
 
@@ -114,6 +120,40 @@ update_interval = 1   # период обновления метрик, секу
    curl -XPOST https://app.divoom-gz.com/Device/ReturnSameLANDevice | jq
    ```
    В ответе поле `DevicePrivateIP` — это и есть адрес часов.
+
+### DeviceToken (если в логах `DeviceToken is err`)
+
+Некоторые версии прошивки требуют токен аутентификации в каждом запросе.
+Токен можно найти в приложении Divoom → настройки устройства, или через:
+
+```bash
+curl -s -XPOST http://<ip>/post -H 'Content-Type: application/json' \
+     -d '{"Command":"Device/GetDeviceToken"}' | jq
+```
+
+Затем задайте токен в конфиге или через переменную окружения:
+
+```toml
+# ~/.divoom-pc-monitor/config.toml
+[device]
+token = "your_token_here"
+```
+
+```bash
+# или через env
+DIVOOM_DEVICE_TOKEN=your_token_here divoom-pc-monitor --device-ip 192.168.1.182
+```
+
+### Погода
+
+Зарегистрируйтесь на [openweathermap.org](https://openweathermap.org/api) и получите бесплатный API-ключ.
+Задайте его в конфиге (`[weather].api_key`) или через переменную окружения:
+
+```bash
+OPENWEATHER_API_KEY=abc123 divoom-pc-monitor --device-ip 192.168.1.182
+```
+
+Без ключа погодные поля отображаются как `--`, приложение работает в штатном режиме.
 
 ---
 
@@ -163,6 +203,45 @@ ruff check .
 pytest
 ```
 
+---
+
+## Автозапуск (systemd, Linux)
+
+Создайте файл сервиса:
+
+```bash
+sudo nano /etc/systemd/system/divoom-pc-monitor.service
+```
+
+```ini
+[Unit]
+Description=Divoom Times Gate PC monitor
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/divoom-pc-monitor --device-ip 192.168.1.182
+Restart=on-failure
+RestartSec=5
+# Секреты передавайте через окружение, не хардкодьте в файлы
+Environment=OPENWEATHER_API_KEY=your_key_here
+# Environment=DIVOOM_DEVICE_TOKEN=your_token_if_needed
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Активация:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now divoom-pc-monitor
+sudo systemctl status divoom-pc-monitor
+journalctl -u divoom-pc-monitor -f   # логи в реальном времени
+```
+
+При завершении (в т.ч. по `systemctl stop`) приложение автоматически восстанавливает исходную тему часов.
+
+---
 
 ## CI/CD
 

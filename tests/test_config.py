@@ -5,8 +5,10 @@ from pathlib import Path
 from divoom_pc_monitor.config import apply_cli_overrides, load_config
 
 
-def test_defaults():
-    cfg = load_config()
+def test_defaults(tmp_path: Path):
+    # Pass a non-existent explicit path so the user's ~/.divoom-pc-monitor/config.toml
+    # is not picked up; tests pure defaults.
+    cfg = load_config(tmp_path / "no_config.toml")
     assert cfg.server.listen_port == 3380
     assert cfg.monitor.update_interval == 1
     assert cfg.device.autodiscover is True

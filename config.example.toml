@@ -1,15 +1,34 @@
 [device]
 # IP of the Divoom Times Gate on your local network.
-# Leave empty to enable auto-discovery (requires internet access for the Divoom cloud API).
+# Leave empty to enable auto-discovery (requires internet access).
 ip = ""
 autodiscover = true
+# Some firmware versions require a DeviceToken.
+# If you see "DeviceToken is err" in the logs, set this.
+# Find the token in the Divoom app → device settings, or via Device/GetDeviceToken.
+# token = ""
 
 [server]
-# Address this machine listens on. The device must be able to reach it over LAN —
+# Address this machine listens on. The device must reach it over LAN —
 # 127.0.0.1 will NOT work. Leave empty to auto-detect the LAN IP.
 listen_host = ""
 listen_port = 3380
 
 [monitor]
-# How often to refresh metrics (seconds, minimum 1).
+# How often to refresh PC metrics (seconds, minimum 1).
 update_interval = 1
+
+[weather]
+# Current weather via OpenWeatherMap free tier API.
+# Register at https://openweathermap.org/api to get a free key.
+# Alternatively set env var: OPENWEATHER_API_KEY=your_key_here
+city = "London"
+api_key = ""
+units = "metric"       # metric (°C, m/s) or imperial (°F, mph)
+update_interval = 600  # refresh weather every 10 minutes
+
+[display]
+# IANA timezone name for the date/time display on the clock.
+# Leave empty to use the system local time.
+# Examples: "Europe/Moscow", "America/New_York", "Asia/Tokyo", "Europe/London"
+timezone = ""

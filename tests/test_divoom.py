@@ -41,12 +41,39 @@ def test_client_network_error():
 
 def test_client_non_json_response():
     resp = MagicMock()
-    resp.headers = {"Content-Type": "text/plain"}
     resp.text = "Request data illegal json"
+    resp.json.side_effect = ValueError("No JSON object")
     resp.raise_for_status = MagicMock()
     with patch("requests.Session.post", return_value=resp):
         client = DivoomClient("192.168.1.100")
         assert client.post({"bad": "payload"}) is False
+
+
+def test_client_injects_token_when_set():
+    mock_resp = _make_response({"error_code": 0})
+    with patch("requests.Session.post", return_value=mock_resp) as mock_post:
+        client = DivoomClient("192.168.1.100", token="secret123")
+        assert client.post({"Command": "Draw/Test"}) is True
+        _, kwargs = mock_post.call_args
+        assert kwargs["json"]["DeviceToken"] == "secret123"
+        assert kwargs["json"]["Command"] == "Draw/Test"
+
+
+def test_client_no_token_field_when_empty():
+    mock_resp = _make_response({"error_code": 0})
+    with patch("requests.Session.post", return_value=mock_resp) as mock_post:
+        client = DivoomClient("192.168.1.100", token="")
+        client.post({"Command": "Draw/Test"})
+        _, kwargs = mock_post.call_args
+        assert "DeviceToken" not in kwargs["json"]
+
+
+def test_client_string_error_code_returns_false():
+    """Firmware returns {"error_code": "DeviceToken is err"} — must be treated as failure."""
+    with patch("requests.Session.post",
+               return_value=_make_response({"error_code": "DeviceToken is err"})):
+        client = DivoomClient("192.168.1.100")
+        assert client.post({"Command": "Draw/Test"}) is False
 
 
 # --- Layout tests ---

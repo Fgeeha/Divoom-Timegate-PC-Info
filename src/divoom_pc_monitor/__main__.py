@@ -36,20 +36,35 @@ def main() -> None:
     device_ip = _resolve_device_ip(cfg)
 
     from divoom_pc_monitor.collectors import MetricsState, get_collector
+    from divoom_pc_monitor.collectors.base import NoiseState, WeatherState
+    from divoom_pc_monitor.collectors.weather import WeatherFetcher
 
     state = MetricsState()
+    weather_state = WeatherState()
+    noise_state = NoiseState()
     collector = get_collector()
-
     images_dir = _prepare_images()
+
+    # Start weather thread immediately so data is ready before the device polls
+    weather_fetcher = WeatherFetcher(cfg.weather.city, cfg.weather.api_key, cfg.weather.units)
+    _start_weather_thread(weather_fetcher, weather_state, cfg.weather.update_interval)
 
     from divoom_pc_monitor.server import create_app
 
-    app = create_app(state, images_dir)
+    app = create_app(state, weather_state, noise_state, images_dir, cfg.display.timezone)
     _start_server(app, cfg.server.listen_host, cfg.server.listen_port)
     time.sleep(1.0)  # give uvicorn time to bind
 
+    client = None
+    saved_channel: Optional[int] = None
     if device_ip:
-        _send_layouts(device_ip, server_url, images_dir)
+        from divoom_pc_monitor.divoom.client import DivoomClient
+        from divoom_pc_monitor.divoom.noise import NoisePoller
+
+        client = DivoomClient(device_ip, token=cfg.device.token)
+        saved_channel = client.get_channel_index()
+        _send_layouts(client, server_url, images_dir)
+        _start_noise_thread(NoisePoller(device_ip, token=cfg.device.token), noise_state)
 
     interval = cfg.monitor.update_interval
     logger.info("Collector running (interval=%ds). Press Ctrl+C to stop.", interval)
@@ -59,9 +74,15 @@ def main() -> None:
                 state.update(collector.collect())
             except Exception as exc:
                 logger.error("Collector error: %s", exc)
-            time.sleep(cfg.monitor.update_interval)
+            time.sleep(interval)
     except KeyboardInterrupt:
         logger.info("Shutting down.")
+    finally:
+        if client is not None:
+            if saved_channel is not None:
+                logger.info("Restoring display channel %d ...", saved_channel)
+                client.set_channel_index(saved_channel)
+            client.close()
 
 
 def _parse_args() -> argparse.Namespace:
@@ -73,7 +94,7 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         metavar="FILE",
-        help="Path to config.toml (default: ~/.divoom-pc-monitor/config.toml, then ./config.toml)",
+        help="Path to config.toml (default: ~/.divoom-pc-monitor/config.toml or ./config.toml)",
     )
     p.add_argument("--device-ip", metavar="IP", help="Device IP (overrides config/env)")
     p.add_argument("--server-host", metavar="HOST", help="Listen host (overrides config)")
@@ -123,7 +144,7 @@ def _create_black_gif(path: Path, size: int = 128) -> None:
         img = Image.new("RGB", (size, size), (0, 0, 0))
         img.save(path, format="GIF")
     except ImportError:
-        # Minimal valid 1x1 black GIF — firmware will likely scale or ignore mismatch
+        # Minimal valid 1×1 black GIF — firmware will scale or ignore mismatch
         path.write_bytes(
             b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
             b"\x00\x00\x00\xff\xff\xff"
@@ -146,13 +167,10 @@ def _start_server(app, host: str, port: int) -> None:
     logger.info("HTTP server started on %s:%d", host, port)
 
 
-def _send_layouts(device_ip: str, server_url: str, images_dir: Path) -> None:
-    from divoom_pc_monitor.divoom.client import DivoomClient
+def _send_layouts(client, server_url: str, images_dir: Path) -> None:
     from divoom_pc_monitor.divoom.layout import DISPLAY_ITEMS, build_layout_command
 
-    client = DivoomClient(device_ip)
     bg_url = f"{server_url}/images/bg.gif"
-
     for lcd_index in range(len(DISPLAY_ITEMS)):
         payload = build_layout_command(lcd_index, server_url, bg_url)
         ok = client.post(payload)
@@ -161,7 +179,32 @@ def _send_layouts(device_ip: str, server_url: str, images_dir: Path) -> None:
         # Avoid flooding the device (§4.5 of CLAUDE.md)
         time.sleep(0.5)
 
-    client.close()
+
+def _start_weather_thread(fetcher, state, interval: int) -> None:
+    def _loop() -> None:
+        data = fetcher.fetch()
+        if data:
+            state.update(data)
+        while True:
+            time.sleep(interval)
+            data = fetcher.fetch()
+            if data:
+                state.update(data)
+
+    threading.Thread(target=_loop, daemon=True).start()
+
+
+def _start_noise_thread(poller, state) -> None:
+    from divoom_pc_monitor.collectors.base import NoiseData
+
+    def _loop() -> None:
+        while True:
+            level = poller.poll()
+            if level is not None:
+                state.update(NoiseData(level=level))
+            time.sleep(5)
+
+    threading.Thread(target=_loop, daemon=True).start()
 
 
 if __name__ == "__main__":

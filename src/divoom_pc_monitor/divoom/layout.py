@@ -1,21 +1,44 @@
 """Display layout definitions and command builder for Divoom Times Gate.
 
-Each display (LcdIndex 0-4, 128x128 px) shows a subset of metrics via
-internet-text items (type 23). The device polls each TextString URL every
-update_time seconds and renders the returned DispData — no "Loading" screen.
+Layout (5 displays, 128×128 px each):
+  Display 0 — PC metrics  : CPU load/temp, GPU load/temp, RAM, network
+  Display 1 — Weather     : city, temp, feels-like, condition, humidity, wind, pressure
+  Display 2 — Weather detail: big temp + all detail lines
+  Display 3 — Date/time   : clock, date, city, condition
+  Display 4 — Noise       : clock, date, city+temp, noise level from device mic
 """
 
 from dataclasses import dataclass
 
-# Text slot IDs — map to /text/{id} on our server
-TEXT_CPU_LOAD = 0   # e.g. "CPU 45%"
-TEXT_CPU_TEMP = 1   # e.g. "CPU 75C"
-TEXT_GPU_LOAD = 2   # e.g. "GPU 80%"
-TEXT_GPU_TEMP = 3   # e.g. "GPU 65C"
-TEXT_RAM_USED = 4   # e.g. "RAM 12.3G"
-TEXT_RAM_PCT  = 5   # e.g. "RAM 60%"
-TEXT_NET_UP   = 6   # e.g. "UP 1.2M/s"
-TEXT_NET_DOWN = 7   # e.g. "DN 5.6M/s"
+# ---------------------------------------------------------------------------
+# Text slot IDs — map to GET /text/{id} on our FastAPI server
+# ---------------------------------------------------------------------------
+
+# PC metrics (0–7)
+TEXT_CPU_LOAD = 0
+TEXT_CPU_TEMP = 1
+TEXT_GPU_LOAD = 2
+TEXT_GPU_TEMP = 3
+TEXT_RAM_USED = 4
+TEXT_RAM_PCT  = 5
+TEXT_NET_UP   = 6
+TEXT_NET_DOWN = 7
+
+# Weather (10–16)
+TEXT_WEATHER_TEMP  = 10
+TEXT_WEATHER_FEELS = 11
+TEXT_WEATHER_HUM   = 12
+TEXT_WEATHER_WIND  = 13
+TEXT_WEATHER_DESC  = 14
+TEXT_WEATHER_CITY  = 15
+TEXT_WEATHER_PRESS = 16
+
+# Date / time (17–18)
+TEXT_TIME_DATE  = 17
+TEXT_TIME_CLOCK = 18
+
+# Noise level from device microphone (19)
+TEXT_NOISE = 19
 
 
 @dataclass(frozen=True)
@@ -23,16 +46,16 @@ class TextItem:
     text_id: int
     x: int
     y: int
-    font: int          # See CLAUDE.md §4.4 for font index reference
-    width: int         # TextWidth
-    height: int        # Textheight
+    font: int           # See CLAUDE.md §4.4 for font index reference
+    width: int          # TextWidth
+    height: int         # Textheight
     color: str = "#FFFFFF"
-    speed: int = 100   # scroll speed
-    direction: int = 0 # 0 = left scroll
-    update_time: int = 1  # poll interval in seconds (minimum 1)
+    speed: int = 100    # scroll speed
+    direction: int = 0  # 0 = left scroll
+    update_time: int = 2
 
 
-def _item_payload(server_url: str, item: TextItem) -> dict:
+def _item(server_url: str, item: TextItem) -> dict:
     return {
         "TextId": item.text_id,
         "type": 23,  # DIVOOM_DISP_CUSTOM_DIAL_SUPPORT_NET_TEXT_MESSAGE
@@ -49,36 +72,72 @@ def _item_payload(server_url: str, item: TextItem) -> dict:
     }
 
 
-# Layouts per display (index = LcdIndex).
-# Using font 4 (readable alphabetic) for most labels.
-# Positioned to center-ish within 128x128.
+# Shorthand helpers keep the table below compact
+def _pc(tid, x, y, w, color):
+    return TextItem(tid, x=x, y=y, font=2, width=w, height=16, color=color, update_time=2)
+
+
+def _wx(tid, x, y, font, w, h, color):
+    return TextItem(tid, x=x, y=y, font=font, width=w, height=h, color=color, update_time=30)
+
+
+def _time(tid, x, y, font, w, h, color, ut):
+    return TextItem(tid, x=x, y=y, font=font, width=w, height=h, color=color, update_time=ut)
+
+
+# ---------------------------------------------------------------------------
+# Layouts per display (index = LcdIndex, 0–4)
+# ---------------------------------------------------------------------------
 DISPLAY_ITEMS: list[list[TextItem]] = [
-    # Display 0 — CPU
+
+    # Display 0 — PC metrics (all on one screen, compact grid)
     [
-        TextItem(TEXT_CPU_LOAD, x=0, y=52, font=4, width=128, height=20, color="#00FF44"),
-        TextItem(TEXT_CPU_TEMP, x=0, y=76, font=4, width=128, height=20, color="#FF8800"),
+        _pc(TEXT_CPU_LOAD, x=0,   y=4,   w=68,  color="#00FF44"),   # CPU 45%
+        _pc(TEXT_CPU_TEMP, x=68,  y=4,   w=60,  color="#FF8800"),   # 72C
+        _pc(TEXT_GPU_LOAD, x=0,   y=28,  w=68,  color="#00AAFF"),   # GPU 80%
+        _pc(TEXT_GPU_TEMP, x=68,  y=28,  w=60,  color="#FF4400"),   # 65C
+        _pc(TEXT_RAM_PCT,  x=0,   y=52,  w=68,  color="#AAAAAA"),   # RAM 60%
+        _pc(TEXT_RAM_USED, x=68,  y=52,  w=60,  color="#FFFFFF"),   # 12.3G
+        _pc(TEXT_NET_UP,   x=0,   y=76,  w=128, color="#00FFAA"),   # UP 1.2M/s
+        _pc(TEXT_NET_DOWN, x=0,   y=100, w=128, color="#FF00AA"),   # DN 5.6M/s
     ],
-    # Display 1 — GPU
+
+    # Display 1 — Weather overview
     [
-        TextItem(TEXT_GPU_LOAD, x=0, y=52, font=4, width=128, height=20, color="#00AAFF"),
-        TextItem(TEXT_GPU_TEMP, x=0, y=76, font=4, width=128, height=20, color="#FF4400"),
+        _wx(TEXT_WEATHER_CITY,  x=0,  y=6,   font=4, w=128, h=20, color="#FFFFFF"),   # Moscow
+        _wx(TEXT_WEATHER_TEMP,  x=0,  y=32,  font=4, w=76,  h=20, color="#FFA040"),   # 22C
+        _wx(TEXT_WEATHER_FEELS, x=76, y=36,  font=2, w=52,  h=16, color="#888888"),   # FL:19C
+        _wx(TEXT_WEATHER_DESC,  x=0,  y=58,  font=2, w=128, h=16, color="#88CCFF"),
+        _wx(TEXT_WEATHER_HUM,   x=0,  y=82,  font=2, w=68,  h=16, color="#00FFFF"),   # HUM:65%
+        _wx(TEXT_WEATHER_WIND,  x=68, y=82,  font=2, w=60,  h=16, color="#00FF88"),   # N 5.2m/s
+        _wx(TEXT_WEATHER_PRESS, x=0,  y=106, font=2, w=128, h=16, color="#666666"),   # 1013hPa
     ],
-    # Display 2 — RAM
+
+    # Display 2 — Weather detail (big temperature + all detail lines)
     [
-        TextItem(TEXT_RAM_USED, x=0, y=52, font=4, width=128, height=20, color="#FFFFFF"),
-        TextItem(TEXT_RAM_PCT,  x=0, y=76, font=4, width=128, height=20, color="#AAAAAA"),
+        _wx(TEXT_WEATHER_TEMP,  x=0, y=8,   font=4, w=128, h=20, color="#FFA040"),   # 22C  (big)
+        _wx(TEXT_WEATHER_FEELS, x=0, y=36,  font=2, w=128, h=16, color="#888888"),   # FL: 19C
+        _wx(TEXT_WEATHER_HUM,   x=0, y=60,  font=2, w=128, h=16, color="#00FFFF"),   # HUM: 65%
+        _wx(TEXT_WEATHER_WIND,  x=0, y=84,  font=2, w=128, h=16, color="#00FF88"),   # N 5.2m/s
+        _wx(TEXT_WEATHER_PRESS, x=0, y=108, font=2, w=128, h=16, color="#666666"),   # 1013 hPa
     ],
-    # Display 3 — Network
+
+    # Display 3 — Date / time
     [
-        TextItem(TEXT_NET_UP,   x=0, y=52, font=4, width=128, height=20, color="#00FFAA"),
-        TextItem(TEXT_NET_DOWN, x=0, y=76, font=4, width=128, height=20, color="#FF00AA"),
+        _time(TEXT_TIME_CLOCK,   x=0, y=16,  font=4, w=128, h=20, color="#FFFFFF",  ut=1),
+        _time(TEXT_TIME_DATE,    x=0, y=48,  font=4, w=128, h=20, color="#FFD700",  ut=60),
+        _wx  (TEXT_WEATHER_CITY, x=0, y=80,  font=2, w=128, h=16, color="#888888"),
+        _wx  (TEXT_WEATHER_DESC, x=0, y=104, font=2, w=128, h=16, color="#88CCFF"),
     ],
-    # Display 4 — Overview (compact, font 2)
+
+    # Display 4 — Noise meter + time
     [
-        TextItem(TEXT_CPU_LOAD, x=0,  y=20, font=2, width=64, height=16, color="#00FF44"),
-        TextItem(TEXT_GPU_LOAD, x=64, y=20, font=2, width=64, height=16, color="#00AAFF"),
-        TextItem(TEXT_RAM_PCT,  x=0,  y=44, font=2, width=64, height=16, color="#FFFFFF"),
-        TextItem(TEXT_NET_DOWN, x=64, y=44, font=2, width=64, height=16, color="#FF00AA"),
+        _time(TEXT_TIME_CLOCK,   x=0,  y=6,  font=4, w=128, h=20, color="#FFFFFF",  ut=1),
+        _time(TEXT_TIME_DATE,    x=0,  y=34, font=2, w=128, h=16, color="#FFD700",  ut=60),
+        _wx  (TEXT_WEATHER_CITY, x=0,  y=58, font=2, w=68,  h=16, color="#888888"),
+        _wx  (TEXT_WEATHER_TEMP, x=68, y=58, font=2, w=60,  h=16, color="#FFA040"),
+        TextItem(TEXT_NOISE, x=0, y=86, font=4, width=128, height=20,
+                 color="#FF8800", update_time=3),
     ],
 ]
 
@@ -91,5 +150,5 @@ def build_layout_command(lcd_index: int, server_url: str, bg_gif_url: str) -> di
         "LcdIndex": lcd_index,
         "NewFlag": 1,
         "BackgroudGif": bg_gif_url,  # Intentional firmware typo — must match exactly
-        "ItemList": [_item_payload(server_url, it) for it in items],
+        "ItemList": [_item(server_url, it) for it in items],
     }

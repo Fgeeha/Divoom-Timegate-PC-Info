@@ -21,6 +21,7 @@ _CONFIG_SEARCH = [
 class DeviceConfig:
     ip: str = ""
     autodiscover: bool = True
+    token: str = ""  # DeviceToken required by some firmware versions
 
 
 @dataclass
@@ -35,15 +36,32 @@ class MonitorConfig:
 
 
 @dataclass
+class WeatherConfig:
+    city: str = "London"
+    api_key: str = ""           # env: OPENWEATHER_API_KEY
+    units: str = "metric"       # metric (°C) or imperial (°F)
+    update_interval: int = 600  # seconds between weather refreshes
+
+
+@dataclass
+class DisplayConfig:
+    timezone: str = ""  # IANA name, e.g. "Europe/Moscow"; empty = system local
+
+
+@dataclass
 class AppConfig:
     device: DeviceConfig
     server: ServerConfig
     monitor: MonitorConfig
+    weather: WeatherConfig
+    display: DisplayConfig
 
     def __init__(self) -> None:
         self.device = DeviceConfig()
         self.server = ServerConfig()
         self.monitor = MonitorConfig()
+        self.weather = WeatherConfig()
+        self.display = DisplayConfig()
 
 
 def _detect_lan_ip() -> str:
@@ -110,6 +128,7 @@ def _apply_toml(cfg: AppConfig, raw: dict) -> None:
     dev = raw.get("device", {})
     cfg.device.ip = str(dev.get("ip", cfg.device.ip))
     cfg.device.autodiscover = bool(dev.get("autodiscover", cfg.device.autodiscover))
+    cfg.device.token = str(dev.get("token", cfg.device.token))
 
     srv = raw.get("server", {})
     cfg.server.listen_host = str(srv.get("listen_host", cfg.server.listen_host))
@@ -119,11 +138,28 @@ def _apply_toml(cfg: AppConfig, raw: dict) -> None:
     raw_interval = int(mon.get("update_interval", cfg.monitor.update_interval))
     cfg.monitor.update_interval = max(1, raw_interval)
 
+    wx = raw.get("weather", {})
+    cfg.weather.city = str(wx.get("city", cfg.weather.city))
+    cfg.weather.api_key = str(wx.get("api_key", cfg.weather.api_key))
+    cfg.weather.units = str(wx.get("units", cfg.weather.units))
+    cfg.weather.update_interval = max(
+        60, int(wx.get("update_interval", cfg.weather.update_interval))
+    )
+
+    disp = raw.get("display", {})
+    cfg.display.timezone = str(disp.get("timezone", cfg.display.timezone))
+
 
 def _apply_env(cfg: AppConfig) -> None:
     if val := os.environ.get("DIVOOM_DEVICE_IP"):
         cfg.device.ip = val
+    if val := os.environ.get("DIVOOM_DEVICE_TOKEN"):
+        cfg.device.token = val
     if val := os.environ.get("DIVOOM_SERVER_HOST"):
         cfg.server.listen_host = val
     if val := os.environ.get("DIVOOM_SERVER_PORT"):
         cfg.server.listen_port = int(val)
+    if val := os.environ.get("OPENWEATHER_API_KEY"):
+        cfg.weather.api_key = val
+    if val := os.environ.get("DIVOOM_TIMEZONE"):
+        cfg.display.timezone = val
