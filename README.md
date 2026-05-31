@@ -44,7 +44,7 @@ sudo sensors-detect --auto
 
 ### Готовые сборки
 
-Соберённые автономные бинарники публикуются как артефакты CI (см. вкладку **Actions** → последний успешный запуск):
+Автономные бинарники публикуются в [**GitHub Releases**](../../releases) при создании тега `v*`:
 
 - `divoom-pc-monitor-linux` — для Ubuntu/Linux;
 - `divoom-pc-monitor-windows.exe` — для Windows 11.
@@ -140,19 +140,6 @@ ruff check .
 pytest
 ```
 
-### Анонимные коммиты
-
-В этом проекте все коммиты анонимны. Настройте репозиторий локально перед работой:
-
-```bash
-git config user.name "anon"
-git config user.email "anon@localhost"
-git config commit.gpgsign false
-```
-
-Сообщения коммитов — в стиле Conventional Commits, без личных данных.
-
----
 
 ## CI/CD
 
@@ -162,6 +149,13 @@ GitHub Actions (`.github/workflows/build.yml`) на каждый push и pull re
 2. Lint (`ruff`) и тесты (`pytest`).
 3. Сборка автономных бинарников (`pyinstaller`).
 4. Публикация артефактов для Linux и Windows.
+
+При создании тега `v*` (например `git tag v1.0.0 && git push origin v1.0.0`) дополнительно запускается job `release`:
+
+5. Скачивает оба бинарника из артефактов.
+6. Создаёт GitHub Release с автосгенерированными release notes.
+
+Для публикации релиза никаких дополнительных секретов не нужно — используется встроенный `GITHUB_TOKEN`.
 
 ---
 

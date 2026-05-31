@@ -52,3 +52,36 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.binary }}
           if-no-files-found: error
+
+  release:
+    name: release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: divoom-pc-monitor-linux
+          path: artifacts/linux
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: divoom-pc-monitor-windows
+          path: artifacts/windows
+
+      - name: Stage release assets
+        run: |
+          mv artifacts/linux/divoom-pc-monitor artifacts/divoom-pc-monitor-linux
+          mv artifacts/windows/divoom-pc-monitor.exe artifacts/divoom-pc-monitor-windows.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/divoom-pc-monitor-linux
+            artifacts/divoom-pc-monitor-windows.exe
+          generate_release_notes: true
