@@ -76,13 +76,9 @@ def main() -> None:
                 logger.error("Collector error: %s", exc)
             time.sleep(interval)
     except KeyboardInterrupt:
-        logger.info("Shutting down.")
+        pass
     finally:
-        if client is not None:
-            if saved_channel is not None:
-                logger.info("Restoring display channel %d ...", saved_channel)
-                client.set_channel_index(saved_channel)
-            client.close()
+        _shutdown(client, saved_channel)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -178,6 +174,29 @@ def _send_layouts(client, server_url: str, images_dir: Path) -> None:
         logger.info("Layout → display %d: %s", lcd_index, status)
         # Avoid flooding the device (§4.5 of CLAUDE.md)
         time.sleep(0.5)
+
+
+def _shutdown(client, saved_channel: Optional[int]) -> None:
+    """Restore device state and close the client, immune to further KeyboardInterrupt."""
+    import signal as _signal
+
+    try:
+        _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
+    except (OSError, ValueError):
+        pass
+
+    if client is None:
+        return
+    try:
+        if saved_channel is not None:
+            print(f"\nRestoring display channel {saved_channel} ...", flush=True)
+            client.set_channel_index(saved_channel)
+    except BaseException:
+        pass
+    try:
+        client.close()
+    except BaseException:
+        pass
 
 
 def _start_weather_thread(fetcher, state, interval: int) -> None:
