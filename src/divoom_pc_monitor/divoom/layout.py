@@ -77,6 +77,10 @@ def _pc(tid, x, y, w, color):
     return TextItem(tid, x=x, y=y, font=2, width=w, height=16, color=color, update_time=2)
 
 
+def _pc4(tid, x, y, color):
+    return TextItem(tid, x=x, y=y, font=4, width=64, height=20, color=color, update_time=2)
+
+
 def _wx(tid, x, y, font, w, h, color):
     return TextItem(tid, x=x, y=y, font=font, width=w, height=h, color=color, update_time=30)
 
@@ -90,16 +94,16 @@ def _time(tid, x, y, font, w, h, color, ut):
 # ---------------------------------------------------------------------------
 DISPLAY_ITEMS: list[list[TextItem]] = [
 
-    # Display 0 — PC metrics (all on one screen, compact grid)
+    # Display 0 — PC metrics (font=4 two-column grid, font=2 for network rows)
     [
-        _pc(TEXT_CPU_LOAD, x=0,   y=4,   w=68,  color="#00FF44"),   # CPU 45%
-        _pc(TEXT_CPU_TEMP, x=68,  y=4,   w=60,  color="#FF8800"),   # 72C
-        _pc(TEXT_GPU_LOAD, x=0,   y=28,  w=68,  color="#00AAFF"),   # GPU 80%
-        _pc(TEXT_GPU_TEMP, x=68,  y=28,  w=60,  color="#FF4400"),   # 65C
-        _pc(TEXT_RAM_PCT,  x=0,   y=52,  w=68,  color="#AAAAAA"),   # RAM 60%
-        _pc(TEXT_RAM_USED, x=68,  y=52,  w=60,  color="#FFFFFF"),   # 12.3G
-        _pc(TEXT_NET_UP,   x=0,   y=76,  w=128, color="#00FFAA"),   # UP 1.2M/s
-        _pc(TEXT_NET_DOWN, x=0,   y=100, w=128, color="#FF00AA"),   # DN 5.6M/s
+        _pc4(TEXT_CPU_LOAD, x=0,  y=2,   color="#00FF44"),
+        _pc4(TEXT_CPU_TEMP, x=64, y=2,   color="#FF8800"),
+        _pc4(TEXT_GPU_LOAD, x=0,  y=28,  color="#00AAFF"),
+        _pc4(TEXT_GPU_TEMP, x=64, y=28,  color="#FF4400"),
+        _pc4(TEXT_RAM_PCT,  x=0,  y=54,  color="#AAAAAA"),
+        _pc4(TEXT_RAM_USED, x=64, y=54,  color="#FFFFFF"),
+        _pc(TEXT_NET_UP,    x=0,  y=84,  w=128, color="#00FFAA"),
+        _pc(TEXT_NET_DOWN,  x=0,  y=106, w=128, color="#FF00AA"),
     ],
 
     # Display 1 — Weather overview
