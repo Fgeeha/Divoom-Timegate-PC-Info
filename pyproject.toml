@@ -1,0 +1,39 @@
+[project]
+name = "divoom-pc-monitor"
+version = "0.1.0"
+description = "Cross-platform PC monitor for Divoom Times Gate pixel clock"
+requires-python = ">=3.12"
+dependencies = [
+    "psutil>=5.9",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "requests>=2.31",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+divoom-pc-monitor = "divoom_pc_monitor.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

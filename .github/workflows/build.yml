@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: divoom-pc-monitor-linux
+            binary: dist/divoom-pc-monitor
+          - os: windows-latest
+            artifact: divoom-pc-monitor-windows
+            binary: dist/divoom-pc-monitor.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lm-sensors
+
+      - name: Install project and tools
+        run: pip install .[dev] pyinstaller
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q
+
+      - name: Build standalone binary
+        run: pyinstaller --onefile --name divoom-pc-monitor src/divoom_pc_monitor/__main__.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error

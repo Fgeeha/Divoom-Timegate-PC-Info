@@ -1,0 +1,15 @@
+[device]
+# IP of the Divoom Times Gate on your local network.
+# Leave empty to enable auto-discovery (requires internet access for the Divoom cloud API).
+ip = ""
+autodiscover = true
+
+[server]
+# Address this machine listens on. The device must be able to reach it over LAN —
+# 127.0.0.1 will NOT work. Leave empty to auto-detect the LAN IP.
+listen_host = ""
+listen_port = 3380
+
+[monitor]
+# How often to refresh metrics (seconds, minimum 1).
+update_interval = 1
