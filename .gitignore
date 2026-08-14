@@ -43,3 +43,10 @@ Thumbs.db
 
 # Temp images generated at runtime
 divoom-images-*/
+
+# Agent/tooling working dirs
+.claude/
+.codegraph/
+
+# Personal scratch notes (contain local IPs and log excerpts)
+ToDo.md

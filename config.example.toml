@@ -3,10 +3,14 @@
 # Leave empty to enable auto-discovery (requires internet access).
 ip = ""
 autodiscover = true
-# Some firmware versions require a DeviceToken.
-# If you see "DeviceToken is err" in the logs, set this.
-# Find the token in the Divoom app → device settings, or via Device/GetDeviceToken.
-# token = ""
+# DeviceToken for firmware versions that require authentication.
+# How to get it: Divoom app → device → settings → copy the token.
+# Alternatively try the cloud: see README → "DeviceToken".
+#
+# Three modes (uncomment one):
+# token = ""      ← send empty token (try this first if you see "DeviceToken is err")
+# token = "abc"   ← send the actual token value
+# (comment out)   ← don't send the field at all (default)
 
 [server]
 # Address this machine listens on. The device must reach it over LAN —

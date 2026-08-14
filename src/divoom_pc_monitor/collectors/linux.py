@@ -7,7 +7,7 @@ from typing import Optional
 
 import psutil
 
-from .base import BaseCollector, Metrics
+from .base import BaseCollector, Metrics, system_extras
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ class LinuxCollector(BaseCollector):
             ram_pct=mem.percent,
             net_up_mbps=net_up,
             net_down_mbps=net_down,
+            **system_extras(),
         )
 
     def _get_cpu_temp(self) -> Optional[float]:

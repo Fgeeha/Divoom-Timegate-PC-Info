@@ -126,28 +126,12 @@ def _resolve_device_ip(cfg) -> Optional[str]:
 
 
 def _prepare_images() -> Path:
+    from divoom_pc_monitor.divoom.background import build_backgrounds
+
     images_dir = Path(tempfile.mkdtemp(prefix="divoom-images-"))
-    bg_path = images_dir / "bg.gif"
-    _create_black_gif(bg_path, size=128)
-    logger.debug("Background GIF: %s", bg_path)
+    build_backgrounds(images_dir)
+    logger.debug("Background GIFs: %s", images_dir)
     return images_dir
-
-
-def _create_black_gif(path: Path, size: int = 128) -> None:
-    try:
-        from PIL import Image
-
-        img = Image.new("RGB", (size, size), (0, 0, 0))
-        img.save(path, format="GIF")
-    except ImportError:
-        # Minimal valid 1×1 black GIF — firmware will scale or ignore mismatch
-        path.write_bytes(
-            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
-            b"\x00\x00\x00\xff\xff\xff"
-            b"!\xf9\x04\x00\x00\x00\x00\x00"
-            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00"
-            b"\x02\x02D\x01\x00;"
-        )
 
 
 def _start_server(app, host: str, port: int) -> None:
@@ -164,10 +148,11 @@ def _start_server(app, host: str, port: int) -> None:
 
 
 def _send_layouts(client, server_url: str, images_dir: Path) -> None:
-    from divoom_pc_monitor.divoom.layout import DISPLAY_ITEMS, build_layout_command
+    from divoom_pc_monitor.divoom.background import bg_filename
+    from divoom_pc_monitor.divoom.layout import SCREENS, build_layout_command
 
-    bg_url = f"{server_url}/images/bg.gif"
-    for lcd_index in range(len(DISPLAY_ITEMS)):
+    for lcd_index in range(len(SCREENS)):
+        bg_url = f"{server_url}/images/{bg_filename(lcd_index)}"
         payload = build_layout_command(lcd_index, server_url, bg_url)
         ok = client.post(payload)
         status = "OK" if ok else "FAILED"

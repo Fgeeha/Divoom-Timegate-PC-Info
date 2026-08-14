@@ -21,7 +21,10 @@ _CONFIG_SEARCH = [
 class DeviceConfig:
     ip: str = ""
     autodiscover: bool = True
-    token: str = ""  # DeviceToken required by some firmware versions
+    # None  = don't send DeviceToken field (default)
+    # ""    = send DeviceToken: "" — try this if device says "DeviceToken is err"
+    # "abc" = send DeviceToken: "abc"
+    token: Optional[str] = None
 
 
 @dataclass
@@ -128,7 +131,8 @@ def _apply_toml(cfg: AppConfig, raw: dict) -> None:
     dev = raw.get("device", {})
     cfg.device.ip = str(dev.get("ip", cfg.device.ip))
     cfg.device.autodiscover = bool(dev.get("autodiscover", cfg.device.autodiscover))
-    cfg.device.token = str(dev.get("token", cfg.device.token))
+    if "token" in dev:
+        cfg.device.token = str(dev["token"])  # "" stays "" (send empty), "abc" stays "abc"
 
     srv = raw.get("server", {})
     cfg.server.listen_host = str(srv.get("listen_host", cfg.server.listen_host))
@@ -153,8 +157,8 @@ def _apply_toml(cfg: AppConfig, raw: dict) -> None:
 def _apply_env(cfg: AppConfig) -> None:
     if val := os.environ.get("DIVOOM_DEVICE_IP"):
         cfg.device.ip = val
-    if val := os.environ.get("DIVOOM_DEVICE_TOKEN"):
-        cfg.device.token = val
+    if "DIVOOM_DEVICE_TOKEN" in os.environ:
+        cfg.device.token = os.environ["DIVOOM_DEVICE_TOKEN"]  # "" is valid
     if val := os.environ.get("DIVOOM_SERVER_HOST"):
         cfg.server.listen_host = val
     if val := os.environ.get("DIVOOM_SERVER_PORT"):

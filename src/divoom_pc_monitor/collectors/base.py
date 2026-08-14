@@ -1,9 +1,13 @@
 """Abstract base collector and shared metrics state."""
 
+import os
 import threading
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+
+import psutil
 
 
 @dataclass
@@ -16,6 +20,31 @@ class Metrics:
     ram_pct: float = 0.0
     net_up_mbps: float = 0.0
     net_down_mbps: float = 0.0
+    uptime_s: float = 0.0
+    disk_used_gb: float = 0.0
+    disk_pct: float = 0.0
+    load_avg: Optional[float] = None  # 1-minute load average; None where unsupported
+
+
+def system_extras() -> dict:
+    """Platform-independent extras shared by every collector (display 2)."""
+    try:
+        disk = psutil.disk_usage(os.path.abspath(os.sep))
+        disk_used_gb, disk_pct = disk.used / 1024**3, disk.percent
+    except OSError:
+        disk_used_gb, disk_pct = 0.0, 0.0
+
+    try:
+        load_avg: Optional[float] = os.getloadavg()[0]
+    except (OSError, AttributeError):
+        load_avg = None  # Windows without the psutil emulation shim
+
+    return {
+        "uptime_s": max(0.0, time.time() - psutil.boot_time()),
+        "disk_used_gb": disk_used_gb,
+        "disk_pct": disk_pct,
+        "load_avg": load_avg,
+    }
 
 
 @dataclass

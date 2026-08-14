@@ -14,7 +14,7 @@ _CMD = "Device/GetNoiseLoudness"
 class NoisePoller:
     """Poll the device noise sensor once per call."""
 
-    def __init__(self, device_ip: str, token: str = "", timeout: int = 3) -> None:
+    def __init__(self, device_ip: str, token: Optional[str] = None, timeout: int = 3) -> None:
         self._url = f"http://{device_ip}/post"
         self._token = token
         self._timeout = timeout
@@ -22,7 +22,7 @@ class NoisePoller:
     def poll(self) -> Optional[int]:
         """Return noise level 0–100, or None on any failure."""
         payload: dict = {"Command": _CMD}
-        if self._token:
+        if self._token is not None:
             payload["DeviceToken"] = self._token
         try:
             resp = requests.post(self._url, json=payload, timeout=self._timeout)

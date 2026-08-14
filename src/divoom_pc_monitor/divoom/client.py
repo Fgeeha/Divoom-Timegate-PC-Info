@@ -11,15 +11,18 @@ logger = logging.getLogger(__name__)
 class DivoomClient:
     """Send JSON commands to the Divoom device at POST http://<ip>/post."""
 
-    def __init__(self, device_ip: str, token: str = "", timeout: int = 5) -> None:
+    def __init__(self, device_ip: str, token: Optional[str] = None, timeout: int = 5) -> None:
         self._url = f"http://{device_ip}/post"
-        self._token = token
+        # None  → don't send DeviceToken field at all
+        # ""    → send DeviceToken: "" (some firmware needs the field present but empty)
+        # "abc" → send DeviceToken: "abc"
+        self._token: Optional[str] = token
         self._timeout = timeout
         self._session = requests.Session()
 
     def _build(self, payload: dict) -> dict:
-        """Inject DeviceToken when configured."""
-        if self._token:
+        """Inject DeviceToken when token is not None."""
+        if self._token is not None:
             return {"DeviceToken": self._token, **payload}
         return payload
 
